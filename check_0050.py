@@ -17,7 +17,6 @@ def send_telegram_message(message, bot_token, chat_id):
         print("❌ 通知發送失敗！", response.text)
 
 def check_0050_open():
-    # 🟢 從 GitHub Secrets 讀取變數，這樣最安全！
     BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
     CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
     
@@ -26,23 +25,26 @@ def check_0050_open():
         sys.exit()
 
     stock = yf.Ticker("0050.TW")
-    hist = stock.history(period="2d")
+    # 🟢 修正點 1：改成抓取最近 5 天的資料，避免時差問題
+    hist = stock.history(period="5d")
     
     if len(hist) < 2:
         print("無法取得足夠的歷史資料。")
         sys.exit()
         
-    yesterday_close = hist['Close'].iloc[0]
-    today_open = hist['Open'].iloc[1]
+    # 🟢 修正點 2：直接抓取清單中的「倒數第二筆(昨日)」與「最後一筆(今日)」
+    yesterday_close = hist['Close'].iloc[-2]
+    today_open = hist['Open'].iloc[-1]
+    
     drop_pct = (today_open - yesterday_close) / yesterday_close
     
     print(f"📊 昨日收盤: {yesterday_close:.2f}")
-    print(f"📊 今日開盤: {today_open:.2f}")
+    print(f"📊 最新開盤: {today_open:.2f}")
     print(f"📈 漲跌幅: {drop_pct*100:.2f}%")
     
-    # 測試期間可以改成 <= 1，確認通知會通後，再改成 <= -0.05
-    if drop_pct <= -0.05: 
-        msg = f"⚠️【0050 暴跌通知】⚠️\n今日開盤價: {today_open:.2f}\n昨日收盤價: {yesterday_close:.2f}\n目前跌幅達: {drop_pct*100:.2f}%！\n請注意市場風險。"
+    # 🟢 修正點 3：暫時改成 <= 1 (保證觸發)，用來測試 Telegram 會不會響
+    if drop_pct <= 1: 
+        msg = f"🔔【0050 監控測試成功】🔔\n最新開盤價: {today_open:.2f}\n昨日收盤價: {yesterday_close:.2f}\n目前漲跌幅: {drop_pct*100:.2f}%"
         send_telegram_message(msg, BOT_TOKEN, CHAT_ID)
     else:
         print("目前跌幅未達標準，不發送通知。")
